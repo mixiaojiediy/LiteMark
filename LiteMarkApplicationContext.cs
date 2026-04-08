@@ -12,6 +12,7 @@ internal sealed class LiteMarkApplicationContext : ApplicationContext
     private readonly AppSettingsStore _settingsStore = new();
     private readonly StartupManager _startupManager = new();
     private readonly OverlayForm _overlayForm = new();
+    private readonly InputBlockerForm _inputBlocker = new();
     private readonly NotifyIcon _notifyIcon;
     private readonly ToolStripMenuItem _startupMenuItem;
     private readonly Icon _enabledIcon;
@@ -36,6 +37,7 @@ internal sealed class LiteMarkApplicationContext : ApplicationContext
     private bool _linePrimaryKeyPendingRelease;
     private byte _fadeAlpha = 255;
     private long _lastKeyboardEventTick;
+    private Point _lastMousePoint;
 
     public LiteMarkApplicationContext()
     {
@@ -68,6 +70,9 @@ internal sealed class LiteMarkApplicationContext : ApplicationContext
         _keyboardHook = new GlobalKeyboardHook(HandleKeyboardEvent);
 
         _mouseHook = new GlobalMouseHook(HandleMouseHook);
+        _inputBlocker.PointerMoved += HandleBlockedPointerMoved;
+        _inputBlocker.PointerPressed += HandleBlockedPointerPressed;
+        _inputBlocker.PointerReleased += HandleBlockedPointerReleased;
 
         _stateTimer = new System.Windows.Forms.Timer { Interval = 16 };
         _stateTimer.Tick += (_, _) => MonitorHotkeyState();
@@ -79,6 +84,7 @@ internal sealed class LiteMarkApplicationContext : ApplicationContext
         _fadeTimer = new System.Windows.Forms.Timer { Interval = 16 };
         _fadeTimer.Tick += (_, _) => FadeTick();
         _lastKeyboardEventTick = Environment.TickCount64;
+        _lastMousePoint = Cursor.Position;
 
         UpdateStartupMenuState();
         UpdateTrayState();
@@ -96,6 +102,8 @@ internal sealed class LiteMarkApplicationContext : ApplicationContext
         _notifyIcon.Dispose();
         _enabledIcon.Dispose();
         _pausedIcon.Dispose();
+        _inputBlocker.Close();
+        _inputBlocker.Dispose();
         _overlayForm.Close();
         _overlayForm.Dispose();
         base.ExitThreadCore();
@@ -420,6 +428,7 @@ internal sealed class LiteMarkApplicationContext : ApplicationContext
         _committedShapes.Clear();
         RenderScene(255);
         _activeMode = mode;
+        _inputBlocker.ActivateBlocker();
         if (mode == MarkupMode.Rectangle)
         {
             _rectPrimaryKeyPendingRelease = true;
@@ -436,6 +445,7 @@ internal sealed class LiteMarkApplicationContext : ApplicationContext
         DebugLogger.Log($"finish mode={_activeMode} committed={_committedShapes.Count}");
         _activeMode = MarkupMode.None;
         _drawing = false;
+        _inputBlocker.DeactivateBlocker();
         _previewShape = null;
         _drawTimer.Stop();
         StartFade();
@@ -461,26 +471,13 @@ internal sealed class LiteMarkApplicationContext : ApplicationContext
             return false;
         }
 
-        switch (args.Message)
-        {
-            case NativeMethods.WmMouseMove:
-            case NativeMethods.WmNcMouseMove:
-                return true;
-            case NativeMethods.WmLButtonDown:
-            case NativeMethods.WmLButtonDblClk:
-                BeginDrawing(args.ScreenPoint);
-                return true;
-            case NativeMethods.WmLButtonUp:
-                EndDrawing(args.ScreenPoint);
-                return true;
-            default:
-                return false;
-        }
+        return false;
     }
 
     private void BeginDrawing(Point point)
     {
         DebugLogger.Log($"begin drawing mode={_activeMode} point={point.X},{point.Y} committed={_committedShapes.Count}");
+        _lastMousePoint = point;
         _drawing = true;
         _previewShape = CreateShape(point, point);
         _drawTimer.Start();
@@ -518,7 +515,7 @@ internal sealed class LiteMarkApplicationContext : ApplicationContext
             return;
         }
 
-        var current = Cursor.Position;
+        var current = _lastMousePoint;
         _previewShape = CreateShape(new Point(_previewShape.X1, _previewShape.Y1), current);
         RenderScene(255);
     }
@@ -639,6 +636,7 @@ internal sealed class LiteMarkApplicationContext : ApplicationContext
         DebugLogger.Log($"reset drawing clearShapes={clearShapes} active={_activeMode} committed={_committedShapes.Count}");
         CancelFade();
         _drawTimer.Stop();
+        _inputBlocker.DeactivateBlocker();
         _previewShape = null;
         _drawing = false;
         _activeMode = MarkupMode.None;
@@ -653,6 +651,32 @@ internal sealed class LiteMarkApplicationContext : ApplicationContext
         }
 
         RenderScene(255);
+    }
+
+    private void HandleBlockedPointerMoved(Point point)
+    {
+        _lastMousePoint = point;
+    }
+
+    private void HandleBlockedPointerPressed(Point point)
+    {
+        if (!_settings.Enabled || _activeMode == MarkupMode.None)
+        {
+            return;
+        }
+
+        BeginDrawing(point);
+    }
+
+    private void HandleBlockedPointerReleased(Point point)
+    {
+        if (!_settings.Enabled || _activeMode == MarkupMode.None)
+        {
+            return;
+        }
+
+        _lastMousePoint = point;
+        EndDrawing(point);
     }
 
     private string FormatPressedKeys() =>

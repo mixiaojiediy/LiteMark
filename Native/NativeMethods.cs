@@ -42,6 +42,13 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     internal static extern short GetAsyncKeyState(int vKey);
 
+    [DllImport("user32.dll", SetLastError = true)]
+    internal static extern IntPtr SetCapture(IntPtr hWnd);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool ReleaseCapture();
+
     [StructLayout(LayoutKind.Sequential)]
     internal struct KbdLlHookStruct
     {
