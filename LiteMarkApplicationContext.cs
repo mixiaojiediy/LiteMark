@@ -32,6 +32,8 @@ internal sealed class LiteMarkApplicationContext : ApplicationContext
     private bool _drawing;
     private bool _rectPressed;
     private bool _linePressed;
+    private bool _rectPrimaryKeyPendingRelease;
+    private bool _linePrimaryKeyPendingRelease;
     private byte _fadeAlpha = 255;
     private long _lastKeyboardEventTick;
 
@@ -122,6 +124,8 @@ internal sealed class LiteMarkApplicationContext : ApplicationContext
             _pressedKeys.Remove(e.Key);
         }
 
+        UpdatePrimaryKeyCaptureState(e);
+
         DebugLogger.Log(
             $"kbd key={e.Key} isDown={e.IsDown} beforeActive={_activeMode} beforeRect={wasRectPressed} beforeLine={wasLinePressed} keys={FormatPressedKeys()}");
         RefreshGestureState();
@@ -144,6 +148,16 @@ internal sealed class LiteMarkApplicationContext : ApplicationContext
         if (!_settings.Enabled)
         {
             return false;
+        }
+
+        if (key == _rectangleGesture.Key && _rectPrimaryKeyPendingRelease)
+        {
+            return true;
+        }
+
+        if (key == _lineGesture.Key && _linePrimaryKeyPendingRelease)
+        {
+            return true;
         }
 
         if (!isDown && IsModifierKey(key) && _activeMode == MarkupMode.None && !_rectPressed && !_linePressed)
@@ -406,6 +420,14 @@ internal sealed class LiteMarkApplicationContext : ApplicationContext
         _committedShapes.Clear();
         RenderScene(255);
         _activeMode = mode;
+        if (mode == MarkupMode.Rectangle)
+        {
+            _rectPrimaryKeyPendingRelease = true;
+        }
+        else if (mode == MarkupMode.HorizontalLine)
+        {
+            _linePrimaryKeyPendingRelease = true;
+        }
         DebugLogger.Log($"activate done mode={_activeMode} committedAfter={_committedShapes.Count}");
     }
 
@@ -616,6 +638,8 @@ internal sealed class LiteMarkApplicationContext : ApplicationContext
         _activeMode = MarkupMode.None;
         _rectPressed = false;
         _linePressed = false;
+        _rectPrimaryKeyPendingRelease = false;
+        _linePrimaryKeyPendingRelease = false;
         _pressedKeys.Clear();
         if (clearShapes)
         {
@@ -629,4 +653,31 @@ internal sealed class LiteMarkApplicationContext : ApplicationContext
         _pressedKeys.Count == 0
             ? "-"
             : string.Join(",", _pressedKeys.OrderBy(static key => key.ToString()).Select(static key => key.ToString()));
+
+    private void UpdatePrimaryKeyCaptureState(KeyStateChangedEventArgs e)
+    {
+        if (e.Key == _rectangleGesture.Key)
+        {
+            if (e.IsDown && (_activeMode == MarkupMode.Rectangle || _rectangleGesture.IsPressed(_pressedKeys)))
+            {
+                _rectPrimaryKeyPendingRelease = true;
+            }
+            else if (!e.IsDown)
+            {
+                _rectPrimaryKeyPendingRelease = false;
+            }
+        }
+
+        if (e.Key == _lineGesture.Key)
+        {
+            if (e.IsDown && (_activeMode == MarkupMode.HorizontalLine || _lineGesture.IsPressed(_pressedKeys)))
+            {
+                _linePrimaryKeyPendingRelease = true;
+            }
+            else if (!e.IsDown)
+            {
+                _linePrimaryKeyPendingRelease = false;
+            }
+        }
+    }
 }
