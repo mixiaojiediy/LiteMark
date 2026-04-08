@@ -8,6 +8,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>LiteMark</AssemblyName>
     <Product>LiteMark</Product>
+    <ApplicationIcon>Assets\LiteMark.ico</ApplicationIcon>
   </PropertyGroup>
 
 </Project>
