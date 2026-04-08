@@ -39,7 +39,8 @@ internal sealed class GlobalMouseHook : IDisposable
         if (nCode >= 0)
         {
             var message = wParam.ToInt32();
-            if (message is NativeMethods.WmLButtonDown or NativeMethods.WmLButtonUp or NativeMethods.WmLButtonDblClk)
+            if (message is NativeMethods.WmMouseMove or NativeMethods.WmNcMouseMove or
+                NativeMethods.WmLButtonDown or NativeMethods.WmLButtonUp or NativeMethods.WmLButtonDblClk)
             {
                 var mouseData = Marshal.PtrToStructure<NativeMethods.MsLlHookStruct>(lParam);
                 var args = new MouseHookEventArgs(message, mouseData.Pt);

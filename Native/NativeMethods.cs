@@ -11,9 +11,11 @@ internal static class NativeMethods
     internal const int WmKeyUp = 0x0101;
     internal const int WmSysKeyDown = 0x0104;
     internal const int WmSysKeyUp = 0x0105;
+    internal const int WmMouseMove = 0x0200;
     internal const int WmLButtonDown = 0x0201;
     internal const int WmLButtonUp = 0x0202;
     internal const int WmLButtonDblClk = 0x0203;
+    internal const int WmNcMouseMove = 0x00A0;
     internal const int WsExToolWindow = 0x00000080;
     internal const int WsExNoActivate = 0x08000000;
     internal const int WsExTransparent = 0x00000020;

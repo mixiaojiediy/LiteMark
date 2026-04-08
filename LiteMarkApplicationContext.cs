@@ -450,8 +450,11 @@ internal sealed class LiteMarkApplicationContext : ApplicationContext
             RefreshGestureState();
         }
 
-        DebugLogger.Log(
-            $"mouse msg={args.Message} point={args.ScreenPoint.X},{args.ScreenPoint.Y} active={_activeMode} drawing={_drawing} committed={_committedShapes.Count} keys={FormatPressedKeys()}");
+        if (args.Message != NativeMethods.WmMouseMove && args.Message != NativeMethods.WmNcMouseMove)
+        {
+            DebugLogger.Log(
+                $"mouse msg={args.Message} point={args.ScreenPoint.X},{args.ScreenPoint.Y} active={_activeMode} drawing={_drawing} committed={_committedShapes.Count} keys={FormatPressedKeys()}");
+        }
 
         if (!_settings.Enabled || _activeMode == MarkupMode.None)
         {
@@ -460,6 +463,9 @@ internal sealed class LiteMarkApplicationContext : ApplicationContext
 
         switch (args.Message)
         {
+            case NativeMethods.WmMouseMove:
+            case NativeMethods.WmNcMouseMove:
+                return true;
             case NativeMethods.WmLButtonDown:
             case NativeMethods.WmLButtonDblClk:
                 BeginDrawing(args.ScreenPoint);
